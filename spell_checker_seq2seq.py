@@ -33,6 +33,7 @@ class SpellChecker():
         # self.decoder_emb_inp = tf.nn.embedding_lookup(self.embedding_decoder, self.decoder_inputs)
         # self.decoder_emb_outp = tf.nn.embedding_lookup(self.embedding_decoder, self.decoder_outputs)
         #
+        # self.projection_layer = tf.layers.dense(self.dic_len, use_bias = False)
         self.projection_layer = tf.layers.Dense(self.dic_len, use_bias = False)
 
         # [batch_size, time_steps, input_size]
@@ -55,8 +56,9 @@ class SpellChecker():
 
         self.logits = self.outputs.rnn_output
 
-        # self.logit = tf.layers.dense(self.outputs, self.n_class, activation = None)
+
         self.prediction = tf.argmax(self.logits, 2)
+        # self.logit = tf.layers.dense(self.outputs, self.n_class, activation = None)
         # self.accuracy = tf.metrics.accuracy(predictions = self.prediction, labels = self.decoder_outputs)
 
         self.crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(logits = self.logits,
@@ -89,29 +91,6 @@ class SpellChecker():
         enc_max_len = 0
         dec_max_len = 0
 
-        # preprecessing
-        for i in range(0, len(df)):
-            df.loc[i, 'x'] = df.loc[i, 'x'].lower()
-            df.loc[i, 'y'] = df.loc[i, 'y'].lower()
-
-            if enc_max_len < len(df.loc[i, 'x']): enc_max_len = len(df.loc[i, 'x'])
-            if dec_max_len < len(df.loc[i, 'y']) + 1: dec_max_len = len(df.loc[i, 'y']) + 1
-
-            enc_len_batch.append(len(df.loc[i, 'x']))
-            dec_len_batch.append(len(df.loc[i, 'y']) + 1)
-
-            x_list = list(df.loc[i, 'x'])
-            for j in range(0, len(x_list)):
-                if x_list[j] not in self.char_arr:
-                    x_list[j] = ' '
-            df.loc[i, 'x'] = "".join(x_list)
-
-            y_list = list(df.loc[i, 'y'])
-            # y_list = list(df.loc[i, 'y'] + (52 - len(df.loc[i, 'y'])) * 'P')
-            for j in range(0, len(y_list)):
-                if y_list[j] not in self.char_arr:
-                    y_list[j] = ' '
-            df.loc[i, 'y'] = "".join(y_list)
 
         # target = ['P' * 51 for n in range(0, len(df))]
         for i in range(0, len(df)):
@@ -121,6 +100,13 @@ class SpellChecker():
 
             target_weights_batch.extend([([1] * len(target)) + ([0] * (dec_max_len - len(target)))])
 
+            if enc_max_len < len(df.loc[i, 'x']): enc_max_len = len(df.loc[i, 'x'])
+            if dec_max_len < len(df.loc[i, 'y']): dec_max_len = len(df.loc[i, 'y'])
+
+            enc_len_batch.append(len(df.loc[i, 'x']))
+            dec_len_batch.append(len(df.loc[i, 'y']) + 1)
+
+            #padding
             input = input + [2] * (enc_max_len - len(input))
             output = output + [2] * (dec_max_len - len(output))
             target = target + [2] * (dec_max_len - len(target))
@@ -156,7 +142,7 @@ class SpellChecker():
 
     def test(self):
         self.enc_input_batch, self.dec_input_batch, self.dec_output_batch, self.target_weights_batch, self.enc_len_batch, self.dec_len_batch = self.make_batch(
-            self.df_test)
+            self.df_train)
 
         self.results, loss = self.sess.run([self.prediction, self.cost],
                                            feed_dict = {self.encoder_inputs:self.enc_input_batch,
