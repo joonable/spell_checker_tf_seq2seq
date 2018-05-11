@@ -78,7 +78,7 @@ class SpellChecker():
             self.cost = (tf.reduce_mean(self.crossent * self.target_weights))
             tf.summary.scalar('cost', self.cost)
 
-        with tf.variable_scope('accuracy_'):
+        with tf.variable_scope('accuracy'):
             correct_predictions = tf.equal(self.prediction, self.decoder_outputs)
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name = 'accuracy')
             tf.summary.scalar('accuracy', self.accuracy)
