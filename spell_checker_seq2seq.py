@@ -197,8 +197,7 @@ class SpellChecker():
     def test(self, df, file_name):
         self.saver.restore(self.sess, self.checkpoint_prefix + '-' + str(self.best_at_step))
 
-        enc_input_batch, dec_input_batch, dec_output_batch, target_weights_batch, enc_len_batch, dec_len_batch = self.make_batch(
-            df)
+        enc_input_batch, dec_input_batch, dec_output_batch, target_weights_batch, enc_len_batch, dec_len_batch = self.make_batch(df)
 
         feed_dict = {
             self.encoder_inputs:enc_input_batch,
