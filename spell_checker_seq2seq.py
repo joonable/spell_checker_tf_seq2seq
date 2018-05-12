@@ -17,9 +17,11 @@ class SpellChecker():
         self.num_dic = {n:i for i, n in enumerate(self.char_arr)}
         self.n_eval = config['n_eval']
 
-        # Checkpoint files will be saved in this directory during training
-        timestamp = str(int(time.time()))
-        self.checkpoint_dir = './checkpoints_' + timestamp + '/'
+        self.training_mode = True
+        self.output_keep_prob = tf.placeholder(tf.float32)
+
+        self.timestamp = str(int(time.time()))
+        self.checkpoint_dir = './checkpoints_' + self.timestamp + '/'
         if os.path.exists(self.checkpoint_dir):
             shutil.rmtree(self.checkpoint_dir)
         os.makedirs(self.checkpoint_dir)
@@ -34,32 +36,17 @@ class SpellChecker():
 
         self.encoder_length = tf.placeholder(tf.int32, [None], name = "encoder_length")
         self.decoder_length = tf.placeholder(tf.int32, [None], name = "decoder_length")
-
-        # Embedding
-        # Look up embedding:
-        #   encoder_inputs: [max_time, batch_size]
-        #   encoder_emb_inp: [max_time, batch_size, embedding_size]
-        # self.embedding_size = 4
-
-        # self.embedding_encoder = tf.get_variable("embedding_encoder", [self.dic_len, self.embedding_size])
-        # self.encoder_emb_inp = tf.nn.embedding_lookup(self.embedding_encoder, self.encoder_inputs)
-        #
-        # self.embedding_decoder = tf.get_variable("embedding_decoder", [self.dic_len, self.embedding_size])
-        # self.decoder_emb_inp = tf.nn.embedding_lookup(self.embedding_decoder, self.decoder_inputs)
-        # self.decoder_emb_outp = tf.nn.embedding_lookup(self.embedding_decoder, self.decoder_outputs)
-
-        # [batch_size, time_steps, input_size]
         self.global_step = tf.Variable(0, name = 'global_step', trainable = False)
 
         with tf.variable_scope('encode'):
             self.enc_cell = tf.nn.rnn_cell.BasicLSTMCell(self.n_hidden)
-            # self.enc_cell = tf.nn.rnn_cell.DropoutWrapper(self.enc_cell, output_keep_prob = 0.5)
+            self.enc_cell = tf.nn.rnn_cell.DropoutWrapper(self.enc_cell, output_keep_prob = self.output_keep_prob)
             self.outputs, self.enc_states = tf.nn.dynamic_rnn(cell = self.enc_cell, inputs = self.encoder_inputs,
                                                               dtype = tf.float32, sequence_length = self.encoder_length)
 
         with tf.variable_scope('decode'):
             self.dec_cell = tf.nn.rnn_cell.BasicLSTMCell(self.n_hidden)
-            # self.dec_cell = tf.nn.rnn_cell.DropoutWrapper(self.dec_cell, output_keep_prob = 0.5)
+            self.dec_cell = tf.nn.rnn_cell.DropoutWrapper(self.dec_cell, output_keep_prob = self.output_keep_prob)
             self.projection_layer = tf.layers.Dense(self.dic_len, use_bias = True)
 
             self.helper = tf.contrib.seq2seq.TrainingHelper(self.decoder_inputs, self.decoder_length)
@@ -78,15 +65,10 @@ class SpellChecker():
             self.cost = (tf.reduce_mean(self.crossent * self.target_weights))
             tf.summary.scalar('cost', self.cost)
 
-        with tf.variable_scope('accuracy'):
+        with tf.variable_scope('accuracy_'):
             correct_predictions = tf.equal(self.prediction, self.decoder_outputs)
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name = 'accuracy')
             tf.summary.scalar('accuracy', self.accuracy)
-
-        #
-        # with tf.name_scope('num_correct'):
-        #     correct = tf.equal(self.prediction, tf.argmax(self.decoder_outputs, axis = 1))
-        #     self.num_correct = tf.reduce_sum(tf.cast(correct, 'float'))
 
         with tf.variable_scope('optimiser'):
             self.params = tf.trainable_variables()
@@ -95,7 +77,6 @@ class SpellChecker():
             self.opimiser = tf.train.AdamOptimizer(self.lr)
             self.train_op = self.opimiser.apply_gradients(zip(self.clipped_gradients, self.params),
                                                           global_step = self.global_step)
-            # self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.cost, global_step = self.global_step)
 
         self.df_train = pd.read_csv('./df_train.csv', index_col = False)
         self.df_test = pd.read_csv('./df_test.csv', index_col = False)
@@ -106,9 +87,6 @@ class SpellChecker():
         self.saver = tf.train.Saver()
         self.sess = tf.Session()
         self.train_writer = tf.summary.FileWriter('./train', self.sess.graph)
-
-        # tf.global_variables_initializer().run()
-
         self.sess.run(tf.global_variables_initializer())
 
     def batch_iter(self, data, batch_size, num_epochs):
@@ -178,7 +156,8 @@ class SpellChecker():
                 self.decoder_outputs:train_dec_output_batch,
                 self.target_weights:train_target_weights_batch,
                 self.encoder_length:train_enc_len_batch,
-                self.decoder_length:train_dec_len_batch
+                self.decoder_length:train_dec_len_batch,
+                self.output_keep_prob:0.75
             }
             self.merged_summaries = tf.summary.merge_all()
             _, loss, accuracy, summary = self.sess.run([self.train_op, self.cost, self.accuracy, self.merged_summaries],
@@ -198,7 +177,8 @@ class SpellChecker():
                     self.decoder_outputs:val_dec_output_batch,
                     self.target_weights:val_target_weights_batch,
                     self.encoder_length:val_enc_len_batch,
-                    self.decoder_length:val_dec_len_batch
+                    self.decoder_length:val_dec_len_batch,
+                    self.output_keep_prob:1
                 }
 
                 val_loss, val_accuracy = self.sess.run([self.cost, self.accuracy], feed_dict = val_feed_dict)
@@ -214,13 +194,11 @@ class SpellChecker():
                     print('Best accuracy {} and {} at step {}'.format(train_best_accuracy, val_best_accuracy,
                                                                       self.best_at_step))
 
-                # test_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/test')
-
-    def test(self):
+    def test(self, df, file_name):
         self.saver.restore(self.sess, self.checkpoint_prefix + '-' + str(self.best_at_step))
 
         enc_input_batch, dec_input_batch, dec_output_batch, target_weights_batch, enc_len_batch, dec_len_batch = self.make_batch(
-            self.df_test)
+            df)
 
         feed_dict = {
             self.encoder_inputs:enc_input_batch,
@@ -228,7 +206,8 @@ class SpellChecker():
             self.decoder_outputs:dec_output_batch,
             self.target_weights:target_weights_batch,
             self.encoder_length:enc_len_batch,
-            self.decoder_length:dec_len_batch
+            self.decoder_length:dec_len_batch,
+            self.output_keep_prob:1
         }
 
         results, loss, accuracy = self.sess.run([self.prediction, self.cost, self.accuracy], feed_dict = feed_dict)
@@ -245,17 +224,21 @@ class SpellChecker():
                 self.translated.append([''.join(result[:end])])
             except:
                 self.translated.append([''.join(result)])
-        return self.translated
+
+        pd.DataFrame(self.translated).to_csv('./' + file_name + '_result_'+ self.timestamp +'.csv')
+
 
 def main():
     config = {}
-    config['lr'] = 0.005
-    config['n_hidden'] = 256
-    config['total_epoch'] = 30
+    config['lr'] = 0.003
+    config['n_hidden'] = 512
+    config['total_epoch'] = 100
+    config['batch_size'] = 256
+    config['n_eval'] = 20
     spell_checker = SpellChecker(config)
-    spell_checker.train()
-    test_result = spell_checker.test()
-    pd.DataFrame(test_result).to_csv('./test_result', index = False)
+
+    spell_checker.test(spell_checker.df_train, 'train')
+    spell_checker.test(spell_checker.df_test, 'test')
 
 if __name__ == '__main__':
     main()
