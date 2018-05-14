@@ -144,9 +144,10 @@ class SpellChecker():
         y_train = self.df_train.y.tolist()
         train_batches = self.batch_iter(data = list(zip(x_train, y_train)), batch_size = self.batch_size,
                                         num_epochs = self.total_epoch)
-        train_best_accuracy, val_best_accuracy, self.best_at_step = 0, 0, 0
+        train_accuracy, train_best_accuracy, val_best_accuracy, self.best_at_step = 0, 0, 0, 0
 
         for train_batch in train_batches:
+
             current_step = tf.train.global_step(self.sess, self.global_step)
             train_enc_input_batch, train_dec_input_batch, train_dec_output_batch, train_target_weights_batch, train_enc_len_batch, train_dec_len_batch \
                 = self.make_batch(pd.DataFrame(train_batch, columns = ['x', 'y']))
@@ -167,6 +168,8 @@ class SpellChecker():
             print('current_step = ', '{}'.format(current_step), ', cost = ', '{:.6f}'.format(loss), ', accuracy = ',
                   '{:.6f}'.format(accuracy))
 
+            train_accuracy += accuracy
+
             if current_step % self.n_eval == 0:
                 val_enc_input_batch, val_dec_input_batch, val_dec_output_batch, val_target_weights_batch, val_enc_len_batch, val_dec_len_batch \
                     = self.make_batch(pd.DataFrame(train_batch, columns = ['x', 'y']))
@@ -186,13 +189,17 @@ class SpellChecker():
                 print('current_step = ', '{}'.format(current_step), ', val_cost = ', '{:.6f}'.format(val_loss),
                       ', val_accuracy = ', '{:.6f}'.format(val_accuracy))
 
-                if accuracy > train_best_accuracy and val_accuracy > val_best_accuracy:
-                    train_best_accuracy, val_best_accuracy, self.best_at_step = accuracy, val_accuracy, current_step
+                train_accuracy /= self.n_eval
+                if train_accuracy > train_best_accuracy and val_accuracy > val_best_accuracy:
+                    train_best_accuracy, val_best_accuracy, self.best_at_step = train_accuracy, val_accuracy, current_step
 
                     path = self.saver.save(self.sess, self.checkpoint_prefix, global_step = current_step)
                     print('Saved model {} at step {}'.format(path, self.best_at_step))
                     print('Best accuracy {} and {} at step {}'.format(train_best_accuracy, val_best_accuracy,
                                                                       self.best_at_step))
+
+                train_accuracy = 0
+
 
     def test(self, df, file_name):
         self.saver.restore(self.sess, self.checkpoint_prefix + '-' + str(self.best_at_step))
@@ -213,19 +220,19 @@ class SpellChecker():
         results, loss, accuracy = self.sess.run([self.prediction, self.cost, self.accuracy], feed_dict = feed_dict)
         print('cost = ', '{:.6f}'.format(loss), ', accuracy = ', '{:.6f}'.format(accuracy))
 
-        decoded = []
+        decoded_number = []
         for result in results:
-            decoded.append([self.char_arr[i] for i in result])
+            decoded_number.append([self.char_arr[i] for i in result])
 
-        self.translated = []
-        for result in decoded:
+        decoded_character = []
+        for result in decoded_number:
             try:
                 end = result.index('E')
-                self.translated.append([''.join(result[:end])])
+                decoded_character.append([''.join(result[:end])])
             except:
-                self.translated.append([''.join(result)])
+                decoded_character.append([''.join(result)])
 
-        pd.DataFrame(self.translated).to_csv('./' + file_name + '_result_'+ self.timestamp +'.csv')
+        pd.DataFrame(decoded_character).to_csv('./' + file_name + '_result_'+ self.timestamp +'.csv')
 
 
 def main():
@@ -237,6 +244,7 @@ def main():
     config['n_eval'] = 20
     spell_checker = SpellChecker(config)
 
+    spell_checker.train()
     spell_checker.test(spell_checker.df_train, 'train')
     spell_checker.test(spell_checker.df_test, 'test')
 
