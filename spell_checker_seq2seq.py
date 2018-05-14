@@ -147,10 +147,10 @@ class SpellChecker():
         train_accuracy, train_best_accuracy, val_best_accuracy, self.best_at_step = 0, 0, 0, 0
 
         for train_batch in train_batches:
-
             current_step = tf.train.global_step(self.sess, self.global_step)
             train_enc_input_batch, train_dec_input_batch, train_dec_output_batch, train_target_weights_batch, train_enc_len_batch, train_dec_len_batch \
                 = self.make_batch(pd.DataFrame(train_batch, columns = ['x', 'y']))
+
             feed_dict = {
                 self.encoder_inputs:train_enc_input_batch,
                 self.decoder_inputs:train_dec_input_batch,
@@ -160,6 +160,7 @@ class SpellChecker():
                 self.decoder_length:train_dec_len_batch,
                 self.output_keep_prob:0.75
             }
+
             self.merged_summaries = tf.summary.merge_all()
             _, loss, accuracy, summary = self.sess.run([self.train_op, self.cost, self.accuracy, self.merged_summaries],
                                                        feed_dict = feed_dict)
@@ -172,7 +173,7 @@ class SpellChecker():
 
             if current_step % self.n_eval == 0:
                 val_enc_input_batch, val_dec_input_batch, val_dec_output_batch, val_target_weights_batch, val_enc_len_batch, val_dec_len_batch \
-                    = self.make_batch(pd.DataFrame(train_batch, columns = ['x', 'y']))
+                    = self.make_batch(self.df_test)
 
                 val_feed_dict = {
                     self.encoder_inputs:val_enc_input_batch,
@@ -187,7 +188,7 @@ class SpellChecker():
                 val_loss, val_accuracy = self.sess.run([self.cost, self.accuracy], feed_dict = val_feed_dict)
 
                 print('current_step = ', '{}'.format(current_step), ', val_cost = ', '{:.6f}'.format(val_loss),
-                      ', val_accuracy = ', '{:.6f}'.format(val_accuracy))
+                      ', val_accuracy = ', '{:.6f}'.format(val_accuracy), ', train_accuracy = ', '{:.6f}'.format(train_accuracy))
 
                 train_accuracy /= self.n_eval
                 if train_accuracy > train_best_accuracy and val_accuracy > val_best_accuracy:
@@ -197,7 +198,6 @@ class SpellChecker():
                     print('Saved model {} at step {}'.format(path, self.best_at_step))
                     print('Best accuracy {} and {} at step {}'.format(train_best_accuracy, val_best_accuracy,
                                                                       self.best_at_step))
-
                 train_accuracy = 0
 
 

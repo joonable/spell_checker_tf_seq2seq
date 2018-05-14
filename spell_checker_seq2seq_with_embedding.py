@@ -177,7 +177,7 @@ class SpellChecker():
 
             if current_step % self.n_eval == 0:
                 val_enc_input_batch, val_dec_input_batch, val_dec_output_batch, val_target_weights_batch, val_enc_len_batch, val_dec_len_batch \
-                    = self.make_batch_emb(pd.DataFrame(train_batch, columns = ['x', 'y']))
+                    = self.make_batch_emb(self.df_test)
 
                 val_feed_dict = {
                     self.encoder_inputs:val_enc_input_batch,
@@ -192,7 +192,7 @@ class SpellChecker():
                 val_loss, val_accuracy = self.sess.run([self.cost, self.accuracy], feed_dict = val_feed_dict)
 
                 print('current_step = ', '{}'.format(current_step), ', val_cost = ', '{:.6f}'.format(val_loss),
-                      ', val_accuracy = ', '{:.6f}'.format(val_accuracy))
+                      ', val_accuracy = ', '{:.6f}'.format(val_accuracy), ', train_accuracy = ', '{:.6f}'.format(train_accuracy))
 
                 train_accuracy /= self.n_eval
                 if train_accuracy > train_best_accuracy and val_accuracy > val_best_accuracy:
@@ -241,10 +241,10 @@ class SpellChecker():
 def main():
     config = {}
     config['lr'] = 0.003
-    config['n_hidden'] = 512
+    config['n_hidden'] = 64
     config['total_epoch'] = 20
     config['batch_size'] = 256
-    config['n_eval'] = 20
+    config['n_eval'] = 3
     config['embedding_size'] = 4
     spell_checker = SpellChecker(config)
 
