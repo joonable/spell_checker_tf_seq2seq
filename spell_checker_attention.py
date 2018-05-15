@@ -99,8 +99,8 @@ class SpellChecker():
             self.train_op = self.opimiser.apply_gradients(zip(self.clipped_gradients, self.params),
                                                           global_step = self.global_step)
 
-        self.df_train = pd.read_csv('./df_train.csv', index_col = False)[['x', 'y']]
-        self.df_test = pd.read_csv('./df_test.csv', index_col = False)[['x', 'y']]
+        self.df_train = pd.read_csv('./df_train_with_noise.csv', index_col = False)[['x', 'y']]
+        self.df_test = pd.read_csv('./df_test_with_noise.csv', index_col = False)[['x', 'y']]
 
         self.graph = tf.Graph()
         self.saver = tf.train.Saver()
@@ -258,3 +258,19 @@ class SpellChecker():
                 decoded_character.append([''.join(result)])
 
         pd.DataFrame(decoded_character).to_csv('./' + file_name + '_result_' + self.timestamp + '.csv', index = False)
+
+def main():
+    config = {}
+    config['lr'] = 0.003
+    config['n_hidden'] = 1024
+    config['total_epoch'] = 100
+    config['batch_size'] = 256
+    config['n_eval'] = 20
+    spell_checker = SpellChecker(config)
+
+    spell_checker.train()
+    spell_checker.test(spell_checker.df_train, 'train')
+    spell_checker.test(spell_checker.df_test, 'test')
+
+if __name__ == '__main__':
+    main()
