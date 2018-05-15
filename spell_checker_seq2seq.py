@@ -187,10 +187,10 @@ class SpellChecker():
 
                 val_loss, val_accuracy = self.sess.run([self.cost, self.accuracy], feed_dict = val_feed_dict)
 
+                train_accuracy /= self.n_eval
                 print('current_step = ', '{}'.format(current_step), ', val_cost = ', '{:.6f}'.format(val_loss),
                       ', val_accuracy = ', '{:.6f}'.format(val_accuracy), ', train_accuracy = ', '{:.6f}'.format(train_accuracy))
 
-                train_accuracy /= self.n_eval
                 if train_accuracy > train_best_accuracy and val_accuracy > val_best_accuracy:
                     train_best_accuracy, val_best_accuracy, self.best_at_step = train_accuracy, val_accuracy, current_step
 
