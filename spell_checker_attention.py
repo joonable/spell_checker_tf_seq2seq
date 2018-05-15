@@ -194,7 +194,7 @@ class SpellChecker():
             if current_step % self.n_eval == 0:
                 val_enc_input_batch, val_dec_input_batch, val_dec_output_batch, \
                 val_target_weights_batch, val_enc_len_batch, val_dec_len_batch, current_batch_size_batch \
-                    = self.make_batch_emb(pd.DataFrame(train_batch, columns = ['x', 'y']))
+                    = self.make_batch_emb(self.df_test)
 
                 val_feed_dict = {
                     self.encoder_inputs:val_enc_input_batch,
