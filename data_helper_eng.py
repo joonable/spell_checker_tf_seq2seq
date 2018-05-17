@@ -1,11 +1,21 @@
 import pandas as pd
 import random
 import numpy as np
+from collections import Counter
+import itertools
 
-char_arr = list("SEPabcdefghijklmnopqrstuvwxyz ")
+vocabulary_list = list("SEPabcdefghijklmnopqrstuvwxyz ")
+vocabulary_dict = {n:i for i, n in enumerate(vocabulary_list)}
+
 alphabets = list("abcdefghijklmnopqrstuvwxyz")
 vowels = list('aeiou')
 consonants = list('bcdfghjklmnpqrstvwxyz')
+
+def build_vocab(sentences):
+    word_counts = Counter(itertools.chain(*sentences))
+    vocabulary_list = [word[0] for word in word_counts.most_common()]
+    vocabulary_dict = {word:index for index, word in enumerate(vocabulary_list)}
+    return vocabulary_dict, vocabulary_list
 
 def preprocessing(x_data, y_data):
     #remove other words
@@ -25,13 +35,13 @@ def preprocessing(x_data, y_data):
 
         x_list = list(df.loc[i, 'x'])
         for j in range(0, len(x_list)):
-            if x_list[j] not in char_arr:
+            if x_list[j] not in vocabulary_list:
                 x_list[j] = ' '
         df.loc[i, 'x'] = "".join(x_list)
 
         y_list = list(df.loc[i, 'y'])
         for j in range(0, len(y_list)):
-            if y_list[j] not in char_arr:
+            if y_list[j] not in vocabulary_list:
                 y_list[j] = ' '
         df.loc[i, 'y'] = "".join(y_list)
     return df
@@ -128,6 +138,58 @@ def split_to_csv(df):
 
     df_train.to_csv('./df_train_with_noise.csv')
     df_test.to_csv('./df_test_with_noise.csv')
+
+def batch_iter(data, batch_size, num_epochs):
+    data = np.array(data)
+    data_size = len(data)
+    num_batches_per_epoch = int(data_size / batch_size) + 1
+
+    for epoch in range(num_epochs):
+        for batch_num in range(num_batches_per_epoch):
+            start_index = batch_num * batch_size
+            end_index = min((batch_num + 1) * batch_size, data_size)
+            yield data[start_index:end_index]
+
+def make_batch(df):
+    enc_input_batch = []
+    dec_input_batch = []
+    dec_output_batch = []
+    target_weights_batch = []
+
+    enc_len_batch = []
+    dec_len_batch = []
+
+    enc_max_len = 0
+    dec_max_len = 0
+    current_batch_size = len(df)
+
+    # preprecessing
+    for i in range(0, len(df)):
+        if enc_max_len < len(df.loc[i, 'x']): enc_max_len = len(df.loc[i, 'x'])
+        if dec_max_len < len(df.loc[i, 'y']) + 1: dec_max_len = len(df.loc[i, 'y']) + 1
+
+        enc_len_batch.append(len(df.loc[i, 'x']))
+        dec_len_batch.append(len(df.loc[i, 'y']) + 1)
+
+    for i in range(0, len(df)):
+        input = [vocabulary_dict[n] for n in df.loc[i, 'x'].lower()]
+        output = [vocabulary_dict[n] for n in ('S' + df.loc[i, 'y'].lower())]
+        target = [vocabulary_dict[n] for n in (df.loc[i, 'y'].lower() + 'E')]
+
+        target_weights_batch.extend([([1] * len(target)) + ([0] * (dec_max_len - len(target)))])
+
+        # pad sentence with 'P'
+        input = input + [2] * (enc_max_len - len(input))
+        output = output + [2] * (dec_max_len - len(output))
+        target = target + [2] * (dec_max_len - len(target))
+
+        enc_input_batch.append(input)
+        dec_input_batch.append(output)
+        dec_output_batch.append(target)
+
+    return enc_input_batch, dec_input_batch, dec_output_batch, target_weights_batch, \
+           enc_len_batch, dec_len_batch, current_batch_size
+
 
 def main():
     with open('./common_typo_errors.txt', 'r+') as file:
