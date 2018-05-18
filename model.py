@@ -203,4 +203,4 @@ class Model(object):
                 decoded_jamo.append(''.join(result))
 
         df['predict'] = [jamo.join_jamos(x) for x in decoded_jamo]
-        df.to_csv('./result/' + file_name + '_result_' + self.timestamp + '.csv', index = False)
+        df.to_csv('./model_result/' + file_name + '_result_' + self.timestamp + '.csv', index = False)
