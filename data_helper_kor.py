@@ -11,50 +11,36 @@ alphabets = list("abcdefghijklmnopqrstuvwxyz")
 
 only_cho = list("ㄸㅃㅉ")
 only_jong = list("ㄳ/ㄵ/ㄶ/ㄺ/ㄻ/ㄼ/ㄽ/ㄾ/ㄿ/ㅀ/ㅄ".split('/'))
-safe_cho_jong = list(set(cho+jong) - set(only_cho + only_jong))
+safe_cho_jong = list(set(cho + jong) - set(only_cho + only_jong))
 
 vocabulary_list = list("SEP ") + list(set(cho + jong)) + jung + number + alphabets
 vocabulary_dict = {n:i for i, n in enumerate(vocabulary_list)}
 
-df_train = pd.read_csv('./df_train_with_noise_kor.csv')
-df_test = pd.read_csv('./df_test_with_noise_kor.csv')
+
+# df_train = pd.read_csv('./df_train_with_noise_kor.csv')
+# df_test = pd.read_csv('./df_test_with_noise_kor.csv')
 # vowels = list('aeiou')
 # consonants = list('bcdfghjklmnpqrstvwxyz')
 def read_file(path):
     df = pd.read_csv(path)
     return df
 
-def preprocessing(df):
-    #remove other words
-    # for i in range(0, len(y_data)):
-    #     y_list = list(y_data[i])
-    #     if ',' in y_list:
-    #         y_list = y_list[:y_list.index(',')]
-    #         y_data[i] = "".join(y_list)
-    # df = pd.concat([x_data, y_data], axis = 1)
-    # df.columns = ['x', 'y']
 
+def preprocessing(df):
     # preprecessing
     for i in range(0, len(df)):
-        # df.loc[i, 'x'] = df.loc[i, 'x'].lower()
-        df.loc[i, 'y'] = df.loc[i, 'y'].lower()
-
-        # x_list = list(df.loc[i, 'x'])
-        # for j in range(0, len(x_list)):
-        #     if x_list[j] not in vocabulary_list:
-        #         x_list[j] = ' '
-        # df.loc[i, 'x'] = "".join(x_list)
-
-        y_list = list(df.loc[i, 'y'])
+        y_list = list(df.loc[i, 'y'].lower())
         for j in range(0, len(y_list)):
             if y_list[j] not in vocabulary_list:
-                y_list[j] = ' '
+                y_list[j] = ''
         df.loc[i, 'y'] = "".join(y_list)
     return df
+
 
 def rand_check(n):
     rand_n = random.randint(1, n)
     return rand_n % n == 0
+
 
 def add_noise(df):
     # df_temp = pd.DataFrame()
@@ -63,15 +49,17 @@ def add_noise(df):
     initial_len = len(df)
     temp_x = []
     temp_y = []
+    temp_actual = []
+
     for i in range(0, initial_len):
-        x, y = get_misspelled_words(df.loc[i, 'y'])
+        x, y, actual = get_misspelled_words(df.loc[i, 'y'])
         temp_x += x
         temp_y += y
-    d = {'x' : temp_x, 'y' : temp_y}
-    temp = pd.DataFrame(d)
-    df = df.append(temp).reset_index(drop = True)
-    # df = pd.concat([df, temp], axis = 1).reset_index(drop = True)
-    return df
+        temp_actual += actual
+    d = {'x':temp_x, 'y':temp_y, 'actual':temp_actual}
+    new_df = pd.DataFrame(d)
+    return new_df
+
 
 def get_misspelled_words(word):
     # splits = [(word[:i], word[i:]) for i in range(len(word) + 1)]
@@ -83,78 +71,83 @@ def get_misspelled_words(word):
         rand_num = random.randint(1, 2)
         misspelled_word_list.append(word[rand_num:])
 
-    # 부분적으로 글자 없애기
-    misspelled_word = ''
-    n = 7
-    for i in range(int(len(word)/n)):
-        rand_num = random.randint(0, n)
-        idx = (i * n) + rand_num
-        min_idx = (i * n)
-        max_idx = ((i + 1) * n)
-        if rand_check(3):
-            if word[idx] in only_jong:
-                word[idx] = safe_cho_jong[random.randint(0, len(safe_cho_jong)) % len(safe_cho_jong)]
+    n = 6
+    if not len(word) < 6:
+        # 부분적으로 글자 없애기
+        misspelled_word = ''
+        for i in range(int(len(word) / n)):
+            rand_num = random.randint(0, n)
+            idx = (i * n) + rand_num
+            min_idx = (i * n)
+            max_idx = ((i + 1) * n)
+            if max_idx > len(word) - 1: break
+            if rand_check(3):
+                try:
+                    if word[idx] in only_jong:
+                        word[idx] = safe_cho_jong[random.randint(0, len(safe_cho_jong)) % len(safe_cho_jong)]
+                    else:
+                        misspelled_word = misspelled_word + word[min_idx:idx] + word[idx + 1:max_idx]
+                except:
+                    print(word)
             else:
-                misspelled_word = misspelled_word + word[min_idx :idx] + word[idx+1:max_idx]
-        else:
-            misspelled_word = misspelled_word + word[min_idx:max_idx]
+                misspelled_word = misspelled_word + word[min_idx:max_idx]
 
-    if word is not misspelled_word and word is not None:
-        misspelled_word_list.append(misspelled_word)
+        if word is not misspelled_word and word is not None:
+            misspelled_word_list.append(misspelled_word)
 
-    # 부분적으로 글자 바꾸기
-    misspelled_word = ''
-    n = 7
-    for i in range(int(len(word)/n)):
-        rand_num = random.randint(0, n)
-        idx = (i * n) + rand_num
-        min_idx = (i * n)
-        max_idx = ((i + 1) * n)
-        if rand_check(3):
+    n = 6
+    if not len(word) < n:
+        # 부분적으로 글자 바꾸기
+        misspelled_word = ''
+        for i in range(int(len(word) / n)):
+            rand_num = random.randint(0, n)
+            idx = (i * n) + rand_num
+            min_idx = (i * n)
+            max_idx = ((i + 1) * n)
+            if max_idx > len(word) - 1: break
 
-            if word[idx] in alphabets:
-                type = alphabets
-            elif word[idx] in number:
-                type = number
-            elif word[idx] in jung:
-                type = jung
-            elif word[idx] in only_cho or safe_cho_jong:
-                type = cho
-            elif word[idx] in only_jong:
-                type = jong
+            if max_idx > len(word): break
+            if rand_check(3):
+                if word[idx] in alphabets:
+                    type = alphabets
+                elif word[idx] in number:
+                    type = number
+                elif word[idx] in jung:
+                    type = jung
+                elif word[idx] in only_cho or safe_cho_jong:
+                    type = cho
+                elif word[idx] in only_jong:
+                    type = jong
+                else:
+                    type = [" "]
+
+                changed_char = type[random.randint(0, len(type)) % len(type)]
+                misspelled_word = misspelled_word + word[min_idx:idx] + changed_char + word[idx + 1:max_idx]
             else:
-                type = [" "]
+                misspelled_word = misspelled_word + word[min_idx:max_idx]
 
-            changed_char = type[random.randint(0, len(type)) % len(type)]
-            misspelled_word = misspelled_word + word[min_idx:idx] + changed_char + word[idx+1:max_idx]
-        else:
-            misspelled_word = misspelled_word + word[min_idx:max_idx]
-
-    if word is not misspelled_word and word is not None:
-        misspelled_word_list.append(misspelled_word)
+        if word is not misspelled_word and word is not None:
+            misspelled_word_list.append(misspelled_word)
 
     # 뒤의 글자 없애기
-    if rand_check(5):
+    if rand_check(7):
         rand_num = random.randint(1, 2)
-        misspelled_word_list.append(word[:len(word)-rand_num])
+        misspelled_word_list.append(word[:len(word) - rand_num])
 
-    # df_misspelled_words = pd.DataFrame(misspelled_word_list)
-    # df_misspelled_words = pd.concat([df_misspelled_words, pd.DataFrame([word] * len(misspelled_word_list))], axis = 1)
-    # df_misspelled_words.columns = ['x', 'y']
-    # df_misspelled_words = pd.concat([misspelled_word_list, [word] * len(misspelled_word_list)], axis = 1)
-    # df_misspelled_words.columns = ['x', 'y']
-    return misspelled_word_list, [word] * len(misspelled_word_list)
+    return misspelled_word_list, [word] * len(misspelled_word_list), [jamo.join_jamos(word)] * len(misspelled_word_list)
+
 
 def cleasing_df(df):
     df = df.dropna()
     df = df.drop_duplicates()
     df = df[df['x'] != '']
     df['len'] = df.x.apply(lambda x:len(x))
-    df = df[df.len > 4]
+    df = df[df.len > 7]
     df = df.reset_index(drop = True)
     df = df.drop(['len'], axis = 1)
 
     return df
+
 
 def split_to_csv(df):
     df = df.sample(frac = 1).reset_index(drop = True)
@@ -163,6 +156,7 @@ def split_to_csv(df):
 
     df_train.to_csv('./df_train_with_noise_kor.csv', index = False)
     df_test.to_csv('./df_test_with_noise_kor.csv', index = False)
+
 
 def batch_iter(data, batch_size, num_epochs):
     data = np.array(data)
@@ -174,6 +168,7 @@ def batch_iter(data, batch_size, num_epochs):
             start_index = batch_num * batch_size
             end_index = min((batch_num + 1) * batch_size, data_size)
             yield data[start_index:end_index]
+
 
 def make_batch(df):
     enc_input_batch = []
@@ -214,17 +209,3 @@ def make_batch(df):
 
     return enc_input_batch, dec_input_batch, dec_output_batch, target_weights_batch, \
            enc_len_batch, dec_len_batch, current_batch_size
-
-# def main():
-#     with open('./common_typo_errors.txt', 'r+') as file:
-#         x_data = pd.Series([x[:x.index('-')] for x in file.readlines()])
-#
-#     with open('./common_typo_errors.txt', 'r+') as file:
-#         y_data  = pd.Series([x[x.index('-')+2:-1] for x in file.readlines()])
-#
-#     df = preprocessing(x_data = x_data, y_data = y_data)
-#
-#     df = add_noise(df = df)
-#     df = cleasing_df(df = df)
-#
-#     split_to_csv(df = df)

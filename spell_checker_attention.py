@@ -1,12 +1,8 @@
-
-import numpy as np
-import pandas as pd
 import tensorflow as tf
-import os
-import time
-import shutil
+import pandas as pd
+
 from model import Model
-from data_helper_eng import *
+
 
 class AttentionSpellChecker(Model):
     def __init__(self, config):
@@ -34,7 +30,7 @@ class AttentionSpellChecker(Model):
 
         with tf.variable_scope('decode'):
             super(AttentionSpellChecker, self).build_decoder()
-            
+
             self.dec_cell = tf.contrib.seq2seq.AttentionWrapper(
                 self.dec_cell, attention_mechanism, attention_layer_size = self.n_hidden)
             self.helper = tf.contrib.seq2seq.TrainingHelper(self.decoder_emb_inp, self.decoder_length)
@@ -45,7 +41,6 @@ class AttentionSpellChecker(Model):
                     .clone(cell_state = self.enc_states),
                 output_layer = projection_layer)
             self.outputs, self.dec_states, self.final_sequence_lengths = tf.contrib.seq2seq.dynamic_decode(self.decoder)
-
 
 def main():
     config = {}
