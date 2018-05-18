@@ -5,8 +5,8 @@ from model import Model
 
 
 class AttentionSpellChecker(Model):
-    def __init__(self, config):
-        super(AttentionSpellChecker, self).__init__(config = config)
+    def __init__(self, config, file_name):
+        super(AttentionSpellChecker, self).__init__(config = config, file_name = file_name)
         self.build_model()
 
     def build_model(self):

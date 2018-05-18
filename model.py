@@ -67,9 +67,9 @@ class Model(object):
 
     def load_data_set(self, file_name):
         if not file_name:
-            file_name = ''
-        self.df_train = pd.read_csv('./dataset/train_' + file_name + '.csv')
-        self.df_test = pd.read_csv('./dataset/test_' + file_name + '.csv')
+            file_name = 'with_noise'
+        self.df_train = pd.read_csv('./dataset/df_train_' + file_name + '.csv')
+        self.df_test = pd.read_csv('./dataset/df_test_' + file_name + '.csv')
 
     @abc.abstractmethod
     def build_embedding_layer(self):
@@ -149,7 +149,7 @@ class Model(object):
 
             log_msg = 'current_step = ', '{}'.format(current_step), \
                       ', cost = ', '{:.6f}'.format(loss), \
-                      ', accuracy = ', '{:.6f}'.format(accuracy)
+                      ', accuracy = ', '{:.6f}'.format(accuracy)+ '\n'
             log_msg_list += log_msg
             print(log_msg)
 
@@ -162,7 +162,7 @@ class Model(object):
                 log_msg = 'current_step = ', '{}'.format(current_step), \
                           ', val_cost = ', '{:.6f}'.format(val_loss), \
                           ', val_accuracy = ', '{:.6f}'.format(val_accuracy), \
-                          ', train_cost = ', '{:.6f}'.format(train_loss)
+                          ', train_cost = ', '{:.6f}'.format(train_loss)+ '\n'
                 log_msg_list += log_msg
                 print(log_msg)
 
@@ -174,7 +174,9 @@ class Model(object):
                     print('Best cost {:.6f} and {:.6f} at step {}'.format(
                         train_best_loss, val_best_loss, self.best_at_step))
 
-                pd.DataFrame(log_msg_list).to_csv('./logs/log_' + self.timestamp + '.txt', index = False)
+                with open('./logs/log_' + self.timestamp + '.txt', 'a') as f:
+                    f.writelines(log_msg_list)
+
                 log_msg_list = []
                 train_loss = 0
 
