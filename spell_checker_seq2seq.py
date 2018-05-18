@@ -86,7 +86,7 @@ class SpellChecker():
         self.graph = tf.Graph()
         self.saver = tf.train.Saver()
         self.sess = tf.Session()
-        self.train_writer = tf.summary.FileWriter('./train', self.sess.graph)
+        self.train_writer = tf.summary.FileWriter('./tensorboard', self.sess.graph)
         self.sess.run(tf.global_variables_initializer())
 
     def batch_iter(self, data, batch_size, num_epochs):
@@ -245,7 +245,7 @@ def main():
     spell_checker = SpellChecker(config)
 
     spell_checker.train()
-    spell_checker.test(spell_checker.df_train, 'train')
+    spell_checker.test(spell_checker.df_train, 'tensorboard')
     spell_checker.test(spell_checker.df_test, 'test')
 
 if __name__ == '__main__':
