@@ -46,6 +46,7 @@ class Model(object):
             tf.summary.scalar('cost', self.cost)
 
         with tf.variable_scope('Accuracy'):
+            # predictions = self.prediction * self.target_weights
             correct_predictions = tf.equal(self.prediction, self.decoder_outputs)
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"))
             tf.summary.scalar('accuracy', self.accuracy)
@@ -54,7 +55,9 @@ class Model(object):
             params = tf.trainable_variables()
             gradients = tf.gradients(self.cost, params)
             clipped_gradients, _ = tf.clip_by_global_norm(gradients, 1)
-            opimiser = tf.train.AdamOptimizer(self.lr)
+            lr = tf.train.exponential_decay(self.lr , global_step = self.global_step, decay_steps = self.n_eval,
+                                            decay_rate = 0.999, staircase = True)
+            opimiser = tf.train.AdamOptimizer(lr)
             self.train_op = opimiser.apply_gradients(
                 zip(clipped_gradients, params), global_step = self.global_step)
 
@@ -156,9 +159,9 @@ class Model(object):
             train_loss += loss
 
             if current_step != 0 and current_step % self.n_eval == 0:
-                val_feed_dict = self.set_feed_dict(train_batch, False)
-                val_loss, val_accuracy = self.sess.run([self.cost, self.accuracy], feed_dict = val_feed_dict)
-                train_loss /= self.n_eval
+                val_loss, val_accuracy = self.test(
+                    self.df_test.sample(frac = 0.2).reset_index(drop = True), False)
+                train_loss /= (self.n_eval)
                 log_msg = 'current_step = ', '{}'.format(current_step), \
                           ', val_cost = ', '{:.6f}'.format(val_loss), \
                           ', val_accuracy = ', '{:.6f}'.format(val_accuracy), \
@@ -169,8 +172,8 @@ class Model(object):
                 if train_loss < train_best_loss and val_loss < val_best_loss:
                     train_best_loss, val_best_loss, self.best_at_step = train_loss, val_loss, current_step
 
-                    path = self.saver.save(self.sess, self.checkpoint_prefix, global_step = current_step)
-                    print('Saved model {} at step {}'.format(path, self.best_at_step))
+                    self.save_current_session(current_step)
+
                     print('Best cost {:.6f} and {:.6f} at step {}'.format(
                         train_best_loss, val_best_loss, self.best_at_step))
 
@@ -180,27 +183,35 @@ class Model(object):
                 log_msg_list = []
                 train_loss = 0
 
+    @abc.abstractmethod
+    def save_current_session(self, current_step):
+        pass
+
+    @abc.abstractmethod
     def restore_best_session(self, best_at_step = None):
-        if not best_at_step:
-            best_at_step = self.best_at_step
-        self.saver.restore(self.sess, self.checkpoint_prefix + '-' + str(best_at_step))
+        pass
 
-    def test(self, df, file_name):
+    def test(self, df, file_name, is_eval = True):
         feed_dict = self.set_feed_dict(df, True)
+
         results, loss, accuracy = self.sess.run([self.prediction, self.cost, self.accuracy], feed_dict = feed_dict)
-        print('cost = ', '{:.6f}'.format(loss), ', accuracy = ', '{:.6f}'.format(accuracy))
 
-        decoded_number = []
-        for result in results:
-            decoded_number.append([self.vocabulary_list[i] for i in result])
+        if is_eval:
+            return loss, accuracy
+        else:
+            print('cost = ', '{:.6f}'.format(loss), ', accuracy = ', '{:.6f}'.format(accuracy))
 
-        decoded_jamo = []
-        for result in decoded_number:
-            try:
-                end = result.index('E')
-                decoded_jamo.append(''.join(result[:end]))
-            except:
-                decoded_jamo.append(''.join(result))
+            decoded_number = []
+            for result in results:
+                decoded_number.append([self.vocabulary_list[i] for i in result])
 
-        df['predict'] = [jamo.join_jamos(x) for x in decoded_jamo]
-        df.to_csv('./model_result/' + file_name + '_result_' + self.timestamp + '.csv', index = False)
+            decoded_jamo = []
+            for result in decoded_number:
+                try:
+                    end = result.index('E')
+                    decoded_jamo.append(''.join(result[:end]))
+                except:
+                    decoded_jamo.append(''.join(result))
+
+            df['predict'] = [jamo.join_jamos(x) for x in decoded_jamo]
+            df.to_csv('./model_result/' + file_name + '_result_' + self.timestamp + '.csv', index = False)

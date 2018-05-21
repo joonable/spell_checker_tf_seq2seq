@@ -42,6 +42,17 @@ class AttentionSpellChecker(Model):
                 output_layer = projection_layer)
             self.outputs, self.dec_states, self.final_sequence_lengths = tf.contrib.seq2seq.dynamic_decode(self.decoder)
 
+    def save_current_session(self, current_step):
+        path = self.saver.save(self.sess, self.checkpoint_prefix, global_step = current_step)
+        print('Saved model {} at step {}'.format(path, self.best_at_step))
+
+    def restore_best_session(self, best_at_step = None):
+        if not best_at_step:
+            best_at_step = self.best_at_step
+        self.saver = tf.train.import_meta_graph("{}.meta".format(self.checkpoint_prefix + '-' + str(best_at_step)))
+        self.saver.restore(self.sess, self.checkpoint_prefix + '-' + str(best_at_step))
+
+
 def main():
     config = {}
     config['lr'] = 0.003
@@ -50,11 +61,12 @@ def main():
     config['batch_size'] = 256
     config['n_eval'] = 20
     config['embedding_size'] = 4
-    spell_checker = AttentionSpellChecker(config)
+    spell_checker = AttentionSpellChecker(config, file_name = "__")
 
     spell_checker.train()
-    spell_checker.test(spell_checker.df_train, 'train_')
-    spell_checker.test(spell_checker.df_test, 'test_')
+    spell_checker.restore_best_session()
+    spell_checker.test(spell_checker.df_train, 'train_', False)
+    spell_checker.test(spell_checker.df_test, 'test_', False)
 
 if __name__ == '__main__':
     main()

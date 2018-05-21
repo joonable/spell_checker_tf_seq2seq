@@ -16,11 +16,11 @@ safe_cho_jong = list(set(cho + jong) - set(only_cho + only_jong))
 vocabulary_list = list("SEP ") + list(set(cho + jong)) + jung + number + alphabets
 vocabulary_dict = {n:i for i, n in enumerate(vocabulary_list)}
 
-
 # df_train = pd.read_csv('./df_train_with_noise_kor.csv')
 # df_test = pd.read_csv('./df_test_with_noise_kor.csv')
 # vowels = list('aeiou')
 # consonants = list('bcdfghjklmnpqrstvwxyz')
+
 def read_file(path):
     df = pd.read_csv(path)
     return df
