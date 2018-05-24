@@ -182,6 +182,8 @@ class Model(object):
 
                 log_msg_list = []
                 train_loss = 0
+                # conf = tf.ConfigProto()
+
 
     @abc.abstractmethod
     def save_current_session(self, current_step):
