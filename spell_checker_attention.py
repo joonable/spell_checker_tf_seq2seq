@@ -60,7 +60,7 @@ def main():
     config['total_epoch'] = 3
     config['batch_size'] = 256
     config['n_eval'] = 20
-    config['embedding_size'] = 4
+    config['embedding_size'] = 8
     spell_checker = AttentionSpellChecker(config, file_name = "__")
 
     spell_checker.train()
