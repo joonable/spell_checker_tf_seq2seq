@@ -55,7 +55,7 @@ class AttentionSpellChecker(Model):
 
 def main():
     config = {}
-    config['lr'] = 0.003
+    config['lr'] = 0.001
     config['n_hidden'] = 32
     config['total_epoch'] = 3
     config['batch_size'] = 256
